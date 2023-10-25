@@ -36,7 +36,8 @@ EMcl2Node::EMcl2Node()
   init_request_(false),
   simple_reset_request_(false),
   scan_receive_(false),
-  map_receive_(false)
+  map_receive_(false),
+  tf_publish_(false)
 {
 	initCommunication();
 }
@@ -70,14 +71,9 @@ void EMcl2Node::initCommunication(void)
 	this->get_parameter("initialpose_topic", initialpose_topic_);
 	
 
-	rclcpp::QoS qos(2);
-	qos.reliability(rclcpp::ReliabilityPolicy::BestEffort);
-
-	// Create the subscription with the defined QoS settings
-	laser_scan_sub_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
-    scan_topic_, 
-    qos,
-    std::bind(&EMcl2Node::cbScan, this, std::placeholders::_1));
+	laser_scan_sub_ = create_subscription<sensor_msgs::msg::LaserScan>(
+	  scan_topic_, rclcpp::QoS(2).reliability(rclcpp::ReliabilityPolicy::BestEffort),
+	std::bind(&EMcl2Node::cbScan, this, std::placeholders::_1));
 	initial_pose_sub_ = create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
 	  initialpose_topic_, 2,
 	  std::bind(&EMcl2Node::initialPoseReceived, this, std::placeholders::_1));
@@ -88,6 +84,10 @@ void EMcl2Node::initCommunication(void)
 	global_loc_srv_ = create_service<std_srvs::srv::Empty>(
 	  "global_localization",
 	  std::bind(&EMcl2Node::cbSimpleReset, this, std::placeholders::_1, std::placeholders::_2));
+
+	tf_publish_srv_ = create_service<std_srvs::srv::Empty>(
+	  "emcl_tf_publish_set",
+	  std::bind(&EMcl2Node::cbTfPublishSet, this, std::placeholders::_1, std::placeholders::_2));
 }
 
 void EMcl2Node::initTF(void)
@@ -154,6 +154,7 @@ void EMcl2Node::initPF(void)
 	  extraction_rate, range_threshold, sensor_reset));
 
 	init_pf_ = true;
+	
 }
 
 std::shared_ptr<OdomModel> EMcl2Node::initOdometry(void)
@@ -194,6 +195,8 @@ void EMcl2Node::cbScan(const sensor_msgs::msg::LaserScan::ConstSharedPtr msg)
 		scan_receive_ = true;
 		scan_time_stamp_ = msg->header.stamp;
 		scan_frame_id_ = msg->header.frame_id;
+		RCLCPP_WARN(
+		  get_logger(), "Scan frame id %s", scan_frame_id_.c_str());
 		pf_->setScan(msg);
 	}
 }
@@ -201,6 +204,7 @@ void EMcl2Node::cbScan(const sensor_msgs::msg::LaserScan::ConstSharedPtr msg)
 void EMcl2Node::initialPoseReceived(
   const geometry_msgs::msg::PoseWithCovarianceStamped::ConstSharedPtr msg)
 {
+	tf_publish_ = true;
 	RCLCPP_INFO(get_logger(), "Run receiveInitialPose");
 	if (!initialpose_receive_) {
 		if (scan_receive_ && map_receive_) {
@@ -321,7 +325,7 @@ void EMcl2Node::publishOdomFrame(double x, double y, double t)
 
 		tf_->transform(tmp_tf_stamped, odom_to_map, odom_frame_id_);
 	} catch (tf2::TransformException & e) {
-		RCLCPP_DEBUG(get_logger(), "Failed to subtract base to odom transform");
+		RCLCPP_ERROR(get_logger(), "\033[1;31mFailed to subtract base to odom transform\033[0m");
 		return;
 	}
 	tf2::convert(odom_to_map.pose, latest_tf_);
@@ -331,10 +335,13 @@ void EMcl2Node::publishOdomFrame(double x, double y, double t)
 	geometry_msgs::msg::TransformStamped tmp_tf_stamped;
 	tmp_tf_stamped.header.frame_id = global_frame_id_;
 	tmp_tf_stamped.header.stamp = tf2_ros::toMsg(transform_tolerance_);
-	tmp_tf_stamped.child_frame_id = odom_frame_id_;
+	tmp_tf_stamped.child_frame_id = "emcl_odom"; //odom_frame_id_;
 	tf2::convert(latest_tf_.inverse(), tmp_tf_stamped.transform);
-
-	tfb_->sendTransform(tmp_tf_stamped);
+	if (tf_publish_){
+		RCLCPP_INFO(get_logger(), "\033[1;32mPublishing the emcl_odom\033[0m");
+		tfb_->sendTransform(tmp_tf_stamped);
+	}
+		
 }
 
 void EMcl2Node::publishParticles(void)
@@ -388,7 +395,7 @@ bool EMcl2Node::getLidarPose(double & x, double & y, double & yaw, bool & inv)
 	geometry_msgs::msg::PoseStamped lidar_pose;
 	try {
 		this->tf_->transform(ident, lidar_pose, base_frame_id_);
-	} catch (tf2::TransformException & e) {
+	} catch (tf2::TransformException & e) {		
 		RCLCPP_WARN(
 		  get_logger(), "Failed to compute lidar pose, skipping scan (%s)", e.what());
 		return false;
@@ -410,6 +417,16 @@ bool EMcl2Node::cbSimpleReset(
   const std_srvs::srv::Empty::Request::ConstSharedPtr, std_srvs::srv::Empty::Response::SharedPtr)
 {
 	return simple_reset_request_ = true;
+}
+
+bool EMcl2Node::cbTfPublishSet(
+  const std_srvs::srv::Empty::Request::ConstSharedPtr, std_srvs::srv::Empty::Response::SharedPtr)
+{	
+	tf_publish_ = !tf_publish_;
+	RCLCPP_INFO(
+		  get_logger(), "Changed the tf publish state (%d)", tf_publish_);
+
+	return true;
 }
 
 }  // namespace emcl2
