@@ -71,8 +71,6 @@ void EMcl2Node::initCommunication(void)
 	this->get_parameter("initialpose_topic", initialpose_topic_);
 	
 
-
-
 	laser_scan_sub_ = create_subscription<sensor_msgs::msg::LaserScan>(
 	  scan_topic_, rclcpp::QoS(2).reliability(rclcpp::ReliabilityPolicy::BestEffort),
 	std::bind(&EMcl2Node::cbScan, this, std::placeholders::_1));
