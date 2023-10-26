@@ -22,6 +22,7 @@
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/transform_listener.h>
+#include <techshare_ros_pkg2/srv/send_msg.hpp>
 
 #include <memory>
 #include <string>
@@ -40,6 +41,8 @@ class EMcl2Node : public rclcpp::Node
 
       private:
 	std::shared_ptr<ExpResetMcl2> pf_;
+
+	rclcpp::Client<techshare_ros_pkg2::srv::SendMsg>::SharedPtr message_client;
 
 	rclcpp::Publisher<geometry_msgs::msg::PoseArray>::SharedPtr particlecloud_pub_;
 	rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr pose_pub_;

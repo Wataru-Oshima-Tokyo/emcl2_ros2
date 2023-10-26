@@ -22,7 +22,6 @@
 #include <tf2_ros/message_filter.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/transform_listener.h>
-
 #include <memory>
 #include <type_traits>
 #include <utility>
@@ -88,6 +87,9 @@ void EMcl2Node::initCommunication(void)
 	tf_publish_srv_ = create_service<std_srvs::srv::Empty>(
 	  "emcl_tf_publish_set",
 	  std::bind(&EMcl2Node::cbTfPublishSet, this, std::placeholders::_1, std::placeholders::_2));
+    message_client = this->create_client<techshare_ros_pkg2::srv::SendMsg>("send_msg");
+
+
 }
 
 void EMcl2Node::initTF(void)
@@ -213,6 +215,10 @@ void EMcl2Node::initialPoseReceived(
 			init_t_ = tf2::getYaw(msg->pose.pose.orientation);
 			pf_->initialize(init_x_, init_y_, init_t_);
 			initialpose_receive_ = true;
+			auto message_request = std::make_shared<techshare_ros_pkg2::srv::SendMsg::Request>();
+			message_request->message = "Now You can set an initial pose";
+			message_request->error = false;
+			message_client->async_send_request(message_request);
 		} else {
 			if (!scan_receive_) {
 				RCLCPP_WARN(
