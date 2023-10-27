@@ -81,6 +81,7 @@ class EMcl2Node : public rclcpp::Node
 	bool scan_receive_;
 	bool map_receive_;
 	bool tf_publish_;
+	bool send_msg_;
 	double init_x_, init_y_, init_t_;
 
 	void publishPose(

@@ -25,6 +25,8 @@
 #include <memory>
 #include <type_traits>
 #include <utility>
+#include <chrono>
+
 
 namespace emcl2
 {
@@ -36,7 +38,8 @@ EMcl2Node::EMcl2Node()
   simple_reset_request_(false),
   scan_receive_(false),
   map_receive_(false),
-  tf_publish_(false)
+  tf_publish_(false),
+  send_msg_(true)
 {
 	initCommunication();
 }
@@ -215,10 +218,6 @@ void EMcl2Node::initialPoseReceived(
 			init_t_ = tf2::getYaw(msg->pose.pose.orientation);
 			pf_->initialize(init_x_, init_y_, init_t_);
 			initialpose_receive_ = true;
-			auto message_request = std::make_shared<techshare_ros_pkg2::srv::SendMsg::Request>();
-			message_request->message = "Now You can set an initial pose";
-			message_request->error = false;
-			message_client->async_send_request(message_request);
 		} else {
 			if (!scan_receive_) {
 				RCLCPP_WARN(
@@ -346,6 +345,18 @@ void EMcl2Node::publishOdomFrame(double x, double y, double t)
 	if (tf_publish_){
 		RCLCPP_INFO(get_logger(), "\033[1;32mPublishing the emcl_odom\033[0m");
 		tfb_->sendTransform(tmp_tf_stamped);
+		send_msg_ = false;
+	}else if (send_msg_){
+		static auto last_time_ = std::chrono::steady_clock::now();
+		auto end_time = std::chrono::steady_clock::now();
+		auto elapsed_time = std::chrono::duration_cast<std::chrono::seconds>(end_time - last_time_);
+		if (elapsed_time.count() >= 2) {
+			auto message_request = std::make_shared<techshare_ros_pkg2::srv::SendMsg::Request>();
+			message_request->message = "Now You can set an initial pose";
+			message_request->error = false;
+			message_client->async_send_request(message_request);
+			last_time_ = std::chrono::steady_clock::now();
+		}
 	}
 		
 }
