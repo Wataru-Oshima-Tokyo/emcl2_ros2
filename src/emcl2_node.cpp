@@ -87,9 +87,9 @@ void EMcl2Node::initCommunication(void)
 	  "global_localization",
 	  std::bind(&EMcl2Node::cbSimpleReset, this, std::placeholders::_1, std::placeholders::_2));
 
-	tf_publish_srv_ = create_service<std_srvs::srv::Empty>(
-	  "emcl_tf_publish_set",
-	  std::bind(&EMcl2Node::cbTfPublishSet, this, std::placeholders::_1, std::placeholders::_2));
+	node_end_srv = create_service<std_srvs::srv::Empty>(
+	  "emcl_node_finish_",
+	  std::bind(&EMcl2Node::nodeDestroySet, this, std::placeholders::_1, std::placeholders::_2));
     message_client = this->create_client<techshare_ros_pkg2::srv::SendMsg>("send_msg");
 
 
@@ -200,8 +200,6 @@ void EMcl2Node::cbScan(const sensor_msgs::msg::LaserScan::ConstSharedPtr msg)
 		scan_receive_ = true;
 		scan_time_stamp_ = msg->header.stamp;
 		scan_frame_id_ = msg->header.frame_id;
-		RCLCPP_WARN(
-		  get_logger(), "Scan frame id %s", scan_frame_id_.c_str());
 		pf_->setScan(msg);
 	}
 }
@@ -248,7 +246,7 @@ void EMcl2Node::loop(void)
 		simple_reset_request_ = false;
 	}
 
-	if (init_pf_) {
+	if (init_pf_ && tf_publish_) {
 		double x, y, t;
 		if (!getOdomPose(x, y, t)) {
 			RCLCPP_INFO(get_logger(), "can't get odometry info");
@@ -275,6 +273,19 @@ void EMcl2Node::loop(void)
 		std_msgs::msg::Float32 alpha_msg;
 		alpha_msg.data = static_cast<float>(pf_->alpha_);
 		alpha_pub_->publish(alpha_msg);
+	}else if (init_pf_ && !tf_publish_){
+		static auto last_time_ = std::chrono::steady_clock::now();
+		if (send_msg_){
+			auto end_time = std::chrono::steady_clock::now();
+			auto elapsed_time = std::chrono::duration_cast<std::chrono::seconds>(end_time - last_time_);
+			if (elapsed_time.count() >= 2) {
+				auto message_request = std::make_shared<techshare_ros_pkg2::srv::SendMsg::Request>();
+				message_request->message = "Now you can set an initial pose";
+				message_request->error = false;
+				message_client->async_send_request(message_request);
+				last_time_ = std::chrono::steady_clock::now();
+			}
+		}
 	} else {
 		if (!scan_receive_) {
 			RCLCPP_WARN(
@@ -346,17 +357,6 @@ void EMcl2Node::publishOdomFrame(double x, double y, double t)
 		RCLCPP_INFO(get_logger(), "\033[1;32mPublishing the emcl_odom\033[0m");
 		tfb_->sendTransform(tmp_tf_stamped);
 		send_msg_ = false;
-	}else if (send_msg_){
-		static auto last_time_ = std::chrono::steady_clock::now();
-		auto end_time = std::chrono::steady_clock::now();
-		auto elapsed_time = std::chrono::duration_cast<std::chrono::seconds>(end_time - last_time_);
-		if (elapsed_time.count() >= 2) {
-			auto message_request = std::make_shared<techshare_ros_pkg2::srv::SendMsg::Request>();
-			message_request->message = "Now You can set an initial pose";
-			message_request->error = false;
-			message_client->async_send_request(message_request);
-			last_time_ = std::chrono::steady_clock::now();
-		}
 	}
 		
 }
@@ -436,14 +436,11 @@ bool EMcl2Node::cbSimpleReset(
 	return simple_reset_request_ = true;
 }
 
-bool EMcl2Node::cbTfPublishSet(
+bool EMcl2Node::nodeDestroySet(
   const std_srvs::srv::Empty::Request::ConstSharedPtr, std_srvs::srv::Empty::Response::SharedPtr)
-{	
-	tf_publish_ = !tf_publish_;
-	RCLCPP_INFO(
-		  get_logger(), "Changed the tf publish state (%d)", tf_publish_);
-
-	return true;
+{    
+    tf_publish_ = false;
+    return true;
 }
 
 }  // namespace emcl2

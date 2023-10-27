@@ -54,7 +54,7 @@ class EMcl2Node : public rclcpp::Node
 
 	// ros::ServiceServer global_loc_srv_;
 	rclcpp::Service<std_srvs::srv::Empty>::SharedPtr global_loc_srv_;
-	rclcpp::Service<std_srvs::srv::Empty>::SharedPtr tf_publish_srv_;
+	rclcpp::Service<std_srvs::srv::Empty>::SharedPtr node_end_srv;
 	rclcpp::Time scan_time_stamp_;
 
 	std::string footprint_frame_id_;
@@ -106,7 +106,7 @@ class EMcl2Node : public rclcpp::Node
 	bool cbSimpleReset(
 	  const std_srvs::srv::Empty::Request::ConstSharedPtr,
 	  std_srvs::srv::Empty::Response::SharedPtr);
-	bool cbTfPublishSet(
+	bool nodeDestroySet(
 	  const std_srvs::srv::Empty::Request::ConstSharedPtr,
 	  std_srvs::srv::Empty::Response::SharedPtr);
 	void initialPoseReceived(const geometry_msgs::msg::PoseWithCovarianceStamped::ConstSharedPtr
