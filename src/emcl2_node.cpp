@@ -278,7 +278,7 @@ void EMcl2Node::loop(void)
 		if (send_msg_){
 			auto end_time = std::chrono::steady_clock::now();
 			auto elapsed_time = std::chrono::duration_cast<std::chrono::seconds>(end_time - last_time_);
-			if (elapsed_time.count() >= 2) {
+			if (elapsed_time.count() >= 3) {
 				auto message_request = std::make_shared<techshare_ros_pkg2::srv::SendMsg::Request>();
 				message_request->message = "Now you can set an initial pose";
 				message_request->error = false;
@@ -439,6 +439,7 @@ bool EMcl2Node::cbSimpleReset(
 bool EMcl2Node::nodeDestroySet(
   const std_srvs::srv::Empty::Request::ConstSharedPtr, std_srvs::srv::Empty::Response::SharedPtr)
 {    
+	send_msg_ = false;
     tf_publish_ = false;
     return true;
 }
