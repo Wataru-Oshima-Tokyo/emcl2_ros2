@@ -17,7 +17,7 @@
 #include <sensor_msgs/msg/laser_scan.hpp>
 #include <std_msgs/msg/float32.hpp>
 #include <std_srvs/srv/empty.hpp>
-
+#include <std_srvs/srv/set_bool.hpp>
 #include <tf2/LinearMath/Transform.h>
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_broadcaster.h>
@@ -55,6 +55,7 @@ class EMcl2Node : public rclcpp::Node
 	// ros::ServiceServer global_loc_srv_;
 	rclcpp::Service<std_srvs::srv::Empty>::SharedPtr global_loc_srv_;
 	rclcpp::Service<std_srvs::srv::Empty>::SharedPtr node_end_srv;
+	rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr send_msg_srv;
 	rclcpp::Time scan_time_stamp_;
 
 	std::string footprint_frame_id_;
@@ -109,6 +110,8 @@ class EMcl2Node : public rclcpp::Node
 	bool nodeDestroySet(
 	  const std_srvs::srv::Empty::Request::ConstSharedPtr,
 	  std_srvs::srv::Empty::Response::SharedPtr);
+	void handle_send_msg_flag(const std::shared_ptr<std_srvs::srv::SetBool::Request> ,
+										std::shared_ptr<std_srvs::srv::SetBool::Response> );
 	void initialPoseReceived(const geometry_msgs::msg::PoseWithCovarianceStamped::ConstSharedPtr
 				   msg);  // same name is found in amcl
 };
