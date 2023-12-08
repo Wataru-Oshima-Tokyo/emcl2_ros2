@@ -39,7 +39,7 @@ EMcl2Node::EMcl2Node()
   scan_receive_(false),
   map_receive_(false),
   tf_publish_(false),
-  send_msg_(true)
+  send_msg_(false)
 {
 	initCommunication();
 }
@@ -90,6 +90,9 @@ void EMcl2Node::initCommunication(void)
 	node_end_srv = create_service<std_srvs::srv::Empty>(
 	  "emcl_node_finish_",
 	  std::bind(&EMcl2Node::nodeDestroySet, this, std::placeholders::_1, std::placeholders::_2));
+	send_msg_srv = create_service<std_srvs::srv::SetBool>(
+	  "send_msg_service",
+	  std::bind(&EMcl2Node::handle_send_msg_flag, this, std::placeholders::_1, std::placeholders::_2));
     message_client = this->create_client<techshare_ros_pkg2::srv::SendMsg>("send_msg");
 
 
@@ -442,6 +445,16 @@ bool EMcl2Node::nodeDestroySet(
 	send_msg_ = false;
     tf_publish_ = false;
     return true;
+}
+
+// Service callback to toggle collision detection
+void EMcl2Node::handle_send_msg_flag(const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
+										std::shared_ptr<std_srvs::srv::SetBool::Response> response)
+{
+	send_msg_ = request->data;
+	response->success = true;
+	response->message = "Sending message permission" + std::string(send_msg_ ? "enabled" : "disabled");
+	RCLCPP_INFO(this->get_logger(), "%s", response->message.c_str());
 }
 
 }  // namespace emcl2
