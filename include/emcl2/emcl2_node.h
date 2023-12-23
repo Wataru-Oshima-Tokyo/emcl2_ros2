@@ -61,6 +61,7 @@ class EMcl2Node : public rclcpp::Node
 	std::string footprint_frame_id_;
 	std::string global_frame_id_;
 	std::string odom_frame_id_;
+	std::string publish_odom_frame_id_;
 	std::string scan_frame_id_;
 	std::string base_frame_id_;
 	std::string scan_topic_;
@@ -69,7 +70,7 @@ class EMcl2Node : public rclcpp::Node
 	std::shared_ptr<tf2_ros::TransformBroadcaster> tfb_;
 	std::shared_ptr<tf2_ros::TransformListener> tfl_;
 	std::shared_ptr<tf2_ros::Buffer> tf_;
-
+	geometry_msgs::msg::TransformStamped fixed_tf_stamped;
 	tf2::Transform latest_tf_;
 
 	rclcpp::Clock ros_clock_;
@@ -79,10 +80,12 @@ class EMcl2Node : public rclcpp::Node
 	bool init_request_;
 	bool initialpose_receive_;
 	bool simple_reset_request_;
+	bool is_fixed_tf_stamped_initialized;
 	bool scan_receive_;
 	bool map_receive_;
 	bool tf_publish_;
 	bool send_msg_;
+	bool use_sim_time_;
 	double init_x_, init_y_, init_t_;
 
 	void publishPose(
@@ -93,7 +96,7 @@ class EMcl2Node : public rclcpp::Node
 	bool getOdomPose(double & x, double & y, double & yaw);	 // same name is found in amcl
 	bool getLidarPose(double & x, double & y, double & yaw, bool & inv);
 	void receiveMap(const nav_msgs::msg::OccupancyGrid::ConstSharedPtr msg);
-
+	void publishFixedOdomFrame();
 	void initCommunication(void);
 	void initTF();
 	void initPF(void);

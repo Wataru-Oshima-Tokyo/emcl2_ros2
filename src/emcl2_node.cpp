@@ -37,6 +37,7 @@ EMcl2Node::EMcl2Node()
   init_request_(false),
   simple_reset_request_(false),
   scan_receive_(false),
+  is_fixed_tf_stamped_initialized(false),
   map_receive_(false),
   tf_publish_(false),
   send_msg_(false)
@@ -57,6 +58,7 @@ void EMcl2Node::initCommunication(void)
 	this->declare_parameter("global_frame_id", std::string("map"));
 	this->declare_parameter("footprint_frame_id", std::string("base_footprint"));
 	this->declare_parameter("odom_frame_id", std::string("odom"));
+	this->declare_parameter("publish_odom_frame_id", std::string("odom"));
 	this->declare_parameter("base_frame_id", std::string("base_link"));
 	this->declare_parameter("scan_topic", std::string("scan"));
 	this->declare_parameter("initialpose_topic", std::string("initialpose"));
@@ -64,11 +66,15 @@ void EMcl2Node::initCommunication(void)
 	this->get_parameter("global_frame_id", global_frame_id_);
 	this->get_parameter("footprint_frame_id", footprint_frame_id_);
 	this->get_parameter("odom_frame_id", odom_frame_id_);
+	this->get_parameter("publish_odom_frame_id", publish_odom_frame_id_);
 	this->get_parameter("base_frame_id", base_frame_id_);
 	this->declare_parameter("odom_freq", 20);
 	this->get_parameter("odom_freq", odom_freq_);
-
-
+	this->get_parameter("use_sim_time", use_sim_time_);
+	if (use_sim_time_)
+	{
+		this->set_parameter(rclcpp::Parameter("use_sim_time", true));
+	}
 	this->get_parameter("scan_topic", scan_topic_);
 	this->get_parameter("initialpose_topic", initialpose_topic_);
 	
@@ -211,6 +217,7 @@ void EMcl2Node::initialPoseReceived(
   const geometry_msgs::msg::PoseWithCovarianceStamped::ConstSharedPtr msg)
 {
 	tf_publish_ = true;
+	is_fixed_tf_stamped_initialized = false;
 	RCLCPP_INFO(get_logger(), "Run receiveInitialPose");
 	if (!initialpose_receive_) {
 		if (scan_receive_ && map_receive_) {
@@ -288,7 +295,9 @@ void EMcl2Node::loop(void)
 				message_client->async_send_request(message_request);
 				last_time_ = std::chrono::steady_clock::now();
 			}
+			
 		}
+		publishFixedOdomFrame();
 	} else {
 		if (!scan_receive_) {
 			RCLCPP_WARN(
@@ -354,14 +363,27 @@ void EMcl2Node::publishOdomFrame(double x, double y, double t)
 	geometry_msgs::msg::TransformStamped tmp_tf_stamped;
 	tmp_tf_stamped.header.frame_id = global_frame_id_;
 	tmp_tf_stamped.header.stamp = tf2_ros::toMsg(transform_tolerance_);
-	tmp_tf_stamped.child_frame_id = "emcl_odom"; //odom_frame_id_;
+	tmp_tf_stamped.child_frame_id = publish_odom_frame_id_;
 	tf2::convert(latest_tf_.inverse(), tmp_tf_stamped.transform);
-	if (tf_publish_){
-		RCLCPP_INFO(get_logger(), "\033[1;32mPublishing the emcl_odom\033[0m");
-		tfb_->sendTransform(tmp_tf_stamped);
-		send_msg_ = false;
-	}
+	// if (tf_publish_){
+	RCLCPP_INFO(get_logger(), "\033[1;32mPublishing the odom\033[0m");
+	tfb_->sendTransform(tmp_tf_stamped);
+	fixed_tf_stamped = tmp_tf_stamped;
+	send_msg_ = false;
+	is_fixed_tf_stamped_initialized = true;
+	// }
 		
+}
+
+void EMcl2Node::publishFixedOdomFrame()
+{
+	if (is_fixed_tf_stamped_initialized) {
+		auto stamp = tf2_ros::fromMsg(scan_time_stamp_);
+		tf2::TimePoint transform_tolerance_ = stamp + tf2::durationFromSec(0.2);
+		fixed_tf_stamped.header.stamp = tf2_ros::toMsg(transform_tolerance_);
+		tfb_->sendTransform(fixed_tf_stamped);
+		RCLCPP_INFO(get_logger(), "\033[1;32mPublishing the fixed odom\033[0m");
+	}
 }
 
 void EMcl2Node::publishParticles(void)
