@@ -365,13 +365,11 @@ void EMcl2Node::publishOdomFrame(double x, double y, double t)
 	tmp_tf_stamped.header.stamp = tf2_ros::toMsg(transform_tolerance_);
 	tmp_tf_stamped.child_frame_id = publish_odom_frame_id_;
 	tf2::convert(latest_tf_.inverse(), tmp_tf_stamped.transform);
-	// if (tf_publish_){
 	RCLCPP_INFO(get_logger(), "\033[1;32mPublishing the odom\033[0m");
 	tfb_->sendTransform(tmp_tf_stamped);
 	fixed_tf_stamped = tmp_tf_stamped;
 	send_msg_ = false;
 	is_fixed_tf_stamped_initialized = true;
-	// }
 		
 }
 
