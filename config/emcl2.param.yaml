@@ -2,7 +2,7 @@
   ros__parameters:
     odom_freq: 20
     global_frame_id: "map"
-    odom_frame_id: "odom"
+    odom_frame_id: "dlio_odom"
     base_frame_id: "base_link"
     footprint_frame_id: "base_footprint"
     laser_min_range: 0.0
