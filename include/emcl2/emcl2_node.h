@@ -23,6 +23,7 @@
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/transform_listener.h>
 #include <techshare_ros_pkg2/srv/send_msg.hpp>
+#include "std_srvs/srv/trigger.hpp"
 
 #include <memory>
 #include <string>
@@ -96,12 +97,16 @@ class EMcl2Node : public rclcpp::Node
 	bool getOdomPose(double & x, double & y, double & yaw);	 // same name is found in amcl
 	bool getLidarPose(double & x, double & y, double & yaw, bool & inv);
 	void receiveMap(const nav_msgs::msg::OccupancyGrid::ConstSharedPtr msg);
-	void publishFixedOdomFrame();
+	void publishFixedOdomFrame(); 
+	void handle_initpose_fixed_service(const std::shared_ptr<rmw_request_id_t> request_header, 
+					const std::shared_ptr<std_srvs::srv::Trigger::Request> request, 
+					std::shared_ptr<std_srvs::srv::Trigger::Response> response); //tf_publish_ = false
 	void initCommunication(void);
 	void initTF();
 	void initPF(void);
 	std::shared_ptr<LikelihoodFieldMap> initMap(void);
 	std::shared_ptr<OdomModel> initOdometry(void);
+	rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr initpose_fixed_service;
 
 	nav_msgs::msg::OccupancyGrid map_;
 

@@ -100,7 +100,7 @@ void EMcl2Node::initCommunication(void)
 	  "send_msg_service",
 	  std::bind(&EMcl2Node::handle_send_msg_flag, this, std::placeholders::_1, std::placeholders::_2));
     message_client = this->create_client<techshare_ros_pkg2::srv::SendMsg>("send_msg");
-
+ 	initpose_fixed_service = this->create_service<std_srvs::srv::Trigger>("initial_pose_fixed", std::bind(&EMcl2Node::handle_initpose_fixed_service, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 
 }
 
@@ -372,6 +372,22 @@ void EMcl2Node::publishOdomFrame(double x, double y, double t)
 	is_fixed_tf_stamped_initialized = true;
 		
 }
+
+void EMcl2Node::handle_initpose_fixed_service(const std::shared_ptr<rmw_request_id_t> request_header, 
+				const std::shared_ptr<std_srvs::srv::Trigger::Request> request, 
+				std::shared_ptr<std_srvs::srv::Trigger::Response> response)
+{
+	RCLCPP_INFO(get_logger(), "\033[1;35mReceived fixing initpose\033[0m");
+	tf_publish_ = false;
+			(void)request_header; // Unused parameter
+	auto message_request = std::make_shared<techshare_ros_pkg2::srv::SendMsg::Request>();
+	message_request->message = "FIXED THE INITIAL POSE";
+	message_request->error = false;
+	message_client->async_send_request(message_request);
+	// Process the request and set the response
+	response->success = true;
+	response->message = "Service called successfully";
+} 
 
 void EMcl2Node::publishFixedOdomFrame()
 {
