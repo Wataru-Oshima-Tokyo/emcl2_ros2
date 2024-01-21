@@ -88,7 +88,7 @@ class EMcl2Node : public rclcpp::Node
 	bool send_msg_;
 	bool use_sim_time_;
 	double init_x_, init_y_, init_t_;
-
+	bool show_mgs_;
 	void publishPose(
 	  double x, double y, double t, double x_dev, double y_dev, double t_dev, double xy_cov,
 	  double yt_cov, double tx_cov);
