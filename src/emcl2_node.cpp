@@ -40,7 +40,8 @@ EMcl2Node::EMcl2Node()
   is_fixed_tf_stamped_initialized(false),
   map_receive_(false),
   tf_publish_(false),
-  send_msg_(false)
+  send_msg_(false),
+  show_mgs_(true)
 {
 	initCommunication();
 }
@@ -218,6 +219,7 @@ void EMcl2Node::initialPoseReceived(
 {
 	tf_publish_ = true;
 	is_fixed_tf_stamped_initialized = false;
+	show_mgs_ = true;
 	RCLCPP_INFO(get_logger(), "Run receiveInitialPose");
 	if (!initialpose_receive_) {
 		if (scan_receive_ && map_receive_) {
@@ -294,12 +296,11 @@ void EMcl2Node::loop(void)
 		// 		message_request->error = false;
 		// 		message_client->async_send_request(message_request);
 		// 		last_time_ = std::chrono::steady_clock::now();
-		// 	}
-			
+		// 	}	
 		// }
 		publishFixedOdomFrame();
 		std_msgs::msg::Float32 alpha_msg;
-		alpha_msg.data = 1.0;
+		alpha_msg.data = 1.5;
 		alpha_pub_->publish(alpha_msg);
 	} else {
 		if (!scan_receive_) {
@@ -395,11 +396,15 @@ void EMcl2Node::handle_initpose_fixed_service(const std::shared_ptr<rmw_request_
 void EMcl2Node::publishFixedOdomFrame()
 {
 	if (is_fixed_tf_stamped_initialized) {
+		
 		auto stamp = tf2_ros::fromMsg(scan_time_stamp_);
 		tf2::TimePoint transform_tolerance_ = stamp + tf2::durationFromSec(0.2);
 		fixed_tf_stamped.header.stamp = tf2_ros::toMsg(transform_tolerance_);
 		tfb_->sendTransform(fixed_tf_stamped);
-		RCLCPP_INFO(get_logger(), "\033[1;32mPublishing the fixed odom\033[0m");
+		if(show_mgs_){
+			RCLCPP_INFO(get_logger(), "\033[1;35mPublishing the fixed odom\033[0m");
+			show_mgs_ = false;
+		}
 	}
 }
 
