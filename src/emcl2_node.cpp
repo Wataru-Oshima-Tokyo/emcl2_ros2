@@ -258,7 +258,7 @@ void EMcl2Node::loop(void)
 		simple_reset_request_ = false;
 	}
 
-	if (init_pf_ && tf_publish_) {
+	if (init_pf_) {
 		double x, y, t;
 		if (!getOdomPose(x, y, t)) {
 			RCLCPP_INFO(get_logger(), "can't get odometry info");
@@ -279,30 +279,13 @@ void EMcl2Node::loop(void)
 		pf_->meanPose(x, y, t, x_var, y_var, t_var, xy_cov, yt_cov, tx_cov);
 
 		publishOdomFrame(x, y, t);
-		publishPose(x, y, t, x_var, y_var, t_var, xy_cov, yt_cov, tx_cov);
+		// publishPose(x, y, t, x_var, y_var, t_var, xy_cov, yt_cov, tx_cov);
 		publishParticles();
 
 		std_msgs::msg::Float32 alpha_msg;
 		alpha_msg.data = static_cast<float>(pf_->alpha_);
 		alpha_pub_->publish(alpha_msg);
-	}else if (init_pf_ && !tf_publish_){
-		static auto last_time_ = std::chrono::steady_clock::now();
-		// if (send_msg_){
-		// 	auto end_time = std::chrono::steady_clock::now();
-		// 	auto elapsed_time = std::chrono::duration_cast<std::chrono::seconds>(end_time - last_time_);
-		// 	if (elapsed_time.count() >= 3) {
-		// 		auto message_request = std::make_shared<techshare_ros_pkg2::srv::SendMsg::Request>();
-		// 		message_request->message = "Now you can set an initial pose";
-		// 		message_request->error = false;
-		// 		message_client->async_send_request(message_request);
-		// 		last_time_ = std::chrono::steady_clock::now();
-		// 	}	
-		// }
-		publishFixedOdomFrame();
-		std_msgs::msg::Float32 alpha_msg;
-		alpha_msg.data = 1.5;
-		alpha_pub_->publish(alpha_msg);
-	} else {
+	}else {
 		if (!scan_receive_) {
 			RCLCPP_WARN(
 			  get_logger(),
@@ -369,11 +352,29 @@ void EMcl2Node::publishOdomFrame(double x, double y, double t)
 	tmp_tf_stamped.header.stamp = tf2_ros::toMsg(transform_tolerance_);
 	tmp_tf_stamped.child_frame_id = publish_odom_frame_id_;
 	tf2::convert(latest_tf_.inverse(), tmp_tf_stamped.transform);
-	RCLCPP_INFO(get_logger(), "\033[1;32mPublishing the odom\033[0m");
-	tfb_->sendTransform(tmp_tf_stamped);
-	fixed_tf_stamped = tmp_tf_stamped;
+	if(!tf_publish_ && is_fixed_tf_stamped_initialized){
+		fixed_tf_stamped.header.stamp = tf2_ros::toMsg(transform_tolerance_);
+		tfb_->sendTransform(fixed_tf_stamped);
+		RCLCPP_INFO(get_logger(), "\033[1;35mPublishing the fixed odom\033[0m");
+		show_mgs_ = false;
+		std_msgs::msg::Float32 alpha_msg;
+		alpha_msg.data = 1.5;
+		alpha_pub_->publish(alpha_msg);
+		if (static_cast<float>(pf_->alpha_) >=.95){
+			is_fixed_tf_stamped_initialized =false;
+		}
+	}else{
+		RCLCPP_INFO(get_logger(), "\033[1;32mPublishing the odom\033[0m");
+		tfb_->sendTransform(tmp_tf_stamped);
+		fixed_tf_stamped = tmp_tf_stamped;
+	}
+	
 	send_msg_ = false;
-	is_fixed_tf_stamped_initialized = true;
+	if (static_cast<float>(pf_->alpha_) >=.95){
+		is_fixed_tf_stamped_initialized =false;
+	}else{
+		is_fixed_tf_stamped_initialized = true;
+	}
 		
 }
 
