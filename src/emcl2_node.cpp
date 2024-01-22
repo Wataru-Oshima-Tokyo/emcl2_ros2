@@ -285,19 +285,22 @@ void EMcl2Node::loop(void)
 		alpha_pub_->publish(alpha_msg);
 	}else if (init_pf_ && !tf_publish_){
 		static auto last_time_ = std::chrono::steady_clock::now();
-		if (send_msg_){
-			auto end_time = std::chrono::steady_clock::now();
-			auto elapsed_time = std::chrono::duration_cast<std::chrono::seconds>(end_time - last_time_);
-			if (elapsed_time.count() >= 3) {
-				auto message_request = std::make_shared<techshare_ros_pkg2::srv::SendMsg::Request>();
-				message_request->message = "Now you can set an initial pose";
-				message_request->error = false;
-				message_client->async_send_request(message_request);
-				last_time_ = std::chrono::steady_clock::now();
-			}
+		// if (send_msg_){
+		// 	auto end_time = std::chrono::steady_clock::now();
+		// 	auto elapsed_time = std::chrono::duration_cast<std::chrono::seconds>(end_time - last_time_);
+		// 	if (elapsed_time.count() >= 3) {
+		// 		auto message_request = std::make_shared<techshare_ros_pkg2::srv::SendMsg::Request>();
+		// 		message_request->message = "Now you can set an initial pose";
+		// 		message_request->error = false;
+		// 		message_client->async_send_request(message_request);
+		// 		last_time_ = std::chrono::steady_clock::now();
+		// 	}
 			
-		}
+		// }
 		publishFixedOdomFrame();
+		std_msgs::msg::Float32 alpha_msg;
+		alpha_msg.data = 1.0;
+		alpha_pub_->publish(alpha_msg);
 	} else {
 		if (!scan_receive_) {
 			RCLCPP_WARN(
