@@ -454,7 +454,8 @@ bool EMcl2Node::getLidarPose(double & x, double & y, double & yaw, bool & inv)
 {
 	geometry_msgs::msg::PoseStamped ident;
 	ident.header.frame_id = scan_frame_id_;
-	ident.header.stamp = ros_clock_.now();
+	// ident.header.stamp = ros_clock_.now();
+	ident.header.stamp = ros_clock_.now() - rclcpp::Duration::from_seconds(0.1); // Adjust the 0.1s as necessary
 	tf2::toMsg(tf2::Transform::getIdentity(), ident.pose);
 
 	geometry_msgs::msg::PoseStamped lidar_pose;
