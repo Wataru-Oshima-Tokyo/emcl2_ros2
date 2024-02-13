@@ -335,7 +335,7 @@ void EMcl2Node::publishOdomFrame(double x, double y, double t)
 
 		geometry_msgs::msg::PoseStamped tmp_tf_stamped;
 		tmp_tf_stamped.header.frame_id = footprint_frame_id_;
-		tmp_tf_stamped.header.stamp = scan_time_stamp_;
+		tmp_tf_stamped.header.stamp = rclcpp::Time(0); //scan_time_stamp_;
 		tf2::toMsg(tmp_tf.inverse(), tmp_tf_stamped.pose);
 
 		tf_->transform(tmp_tf_stamped, odom_to_map, odom_frame_id_);
@@ -455,7 +455,8 @@ bool EMcl2Node::getLidarPose(double & x, double & y, double & yaw, bool & inv)
 	geometry_msgs::msg::PoseStamped ident;
 	ident.header.frame_id = scan_frame_id_;
 	// ident.header.stamp = ros_clock_.now();
-	ident.header.stamp = ros_clock_.now() - rclcpp::Duration::from_seconds(0.1); // Adjust the 0.1s as necessary
+	ident.header.stamp = rclcpp::Time(0);
+	// ident.header.stamp = ros_clock_.now() - rclcpp::Duration::from_seconds(0.1); // Adjust the 0.1s as necessary
 	tf2::toMsg(tf2::Transform::getIdentity(), ident.pose);
 
 	geometry_msgs::msg::PoseStamped lidar_pose;
