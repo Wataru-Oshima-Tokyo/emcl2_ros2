@@ -381,6 +381,7 @@ void EMcl2Node::checkAlpha() {
 		if (alpha_array.size() >= 10) {
 			is_fixed_tf_stamped_initialized = false;
 			alpha_array.clear(); // Clear it after published
+			initial_pose_flag = false;
 			stopTimer(); // Stop the timer as we're clearing the array now
 			return;
 		} else if (!timer_started_) {
