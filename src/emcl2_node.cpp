@@ -38,8 +38,8 @@ EMcl2Node::EMcl2Node()
   simple_reset_request_(false),
   scan_receive_(false),
   is_fixed_tf_stamped_initialized(false),
+  initial_pose_flag(false),
   map_receive_(false),
-  tf_publish_(false),
   send_msg_(false),
   show_mgs_(true)
 {
@@ -217,7 +217,7 @@ void EMcl2Node::cbScan(const sensor_msgs::msg::LaserScan::ConstSharedPtr msg)
 void EMcl2Node::initialPoseReceived(
   const geometry_msgs::msg::PoseWithCovarianceStamped::ConstSharedPtr msg)
 {
-	tf_publish_ = true;
+	initial_pose_flag = true;
 	is_fixed_tf_stamped_initialized = false;
 	show_mgs_ = true;
 	RCLCPP_INFO(get_logger(), "Run receiveInitialPose");
@@ -352,7 +352,9 @@ void EMcl2Node::publishOdomFrame(double x, double y, double t)
 	tmp_tf_stamped.header.stamp = tf2_ros::toMsg(transform_tolerance_);
 	tmp_tf_stamped.child_frame_id = publish_odom_frame_id_;
 	tf2::convert(latest_tf_.inverse(), tmp_tf_stamped.transform);
-	if(!tf_publish_ && is_fixed_tf_stamped_initialized){
+	//here I set the threshold to publish a new map->odom which should be published only if the alpha is more than 95% and 10 times total 
+	checkAlpha();
+	if(!initial_pose_flag && is_fixed_tf_stamped_initialized){
 		fixed_tf_stamped.header.stamp = tf2_ros::toMsg(transform_tolerance_);
 		tfb_->sendTransform(fixed_tf_stamped);
 		RCLCPP_INFO(get_logger(), "\033[1;35mPublishing the fixed odom\033[0m");
@@ -360,30 +362,68 @@ void EMcl2Node::publishOdomFrame(double x, double y, double t)
 		std_msgs::msg::Float32 alpha_msg;
 		alpha_msg.data = 1.5;
 		alpha_pub_->publish(alpha_msg);
-		if (static_cast<float>(pf_->alpha_) >=.95){
-			is_fixed_tf_stamped_initialized =false;
-		}
-	}else{
+		// if (static_cast<float>(pf_->alpha_) >=.95){
+		// 	is_fixed_tf_stamped_initialized =false;
+		// }
+		initial_pose_flag= false;
+	}else if (initial_pose_flag || !is_fixed_tf_stamped_initialized){
 		RCLCPP_INFO(get_logger(), "\033[1;32mPublishing the odom\033[0m");
 		tfb_->sendTransform(tmp_tf_stamped);
 		fixed_tf_stamped = tmp_tf_stamped;
 	}
 	
-	send_msg_ = false;
-	if (static_cast<float>(pf_->alpha_) >=.95){
-		is_fixed_tf_stamped_initialized =false;
-	}else{
-		is_fixed_tf_stamped_initialized = true;
-	}
-		
+	send_msg_ = false;		
 }
+
+void EMcl2Node::checkAlpha() {
+	if (static_cast<float>(pf_->alpha_) >= .95) {
+		alpha_array.push_back(1);
+		if (alpha_array.size() >= 10) {
+			is_fixed_tf_stamped_initialized = false;
+			alpha_array.clear(); // Clear it after published
+			stopTimer(); // Stop the timer as we're clearing the array now
+			return;
+		} else if (!timer_started_) {
+			startTimer();
+		}
+	} else if (static_cast<float>(pf_->alpha_) < .7) {
+		alpha_array.clear(); // Clear it when alpha is below 50%
+		stopTimer(); // Also stop the timer here
+	}
+	is_fixed_tf_stamped_initialized = true;
+}
+
+
+
+void EMcl2Node::startTimer() {
+	timer_ = this->create_wall_timer(
+		std::chrono::seconds(3), 
+		std::bind(&EMcl2Node::clearAlphaArray, this));
+	timer_started_ = true;
+}
+
+void EMcl2Node::stopTimer() {
+	if (timer_) {
+		timer_->cancel();
+		timer_.reset();
+	}
+	timer_started_ = false;
+}
+
+void EMcl2Node::clearAlphaArray() {
+	alpha_array.clear();
+	timer_started_ = false; // Reset timer flag
+	// Any other actions to take after clearing the array
+}
+
 
 void EMcl2Node::handle_initpose_fixed_service(const std::shared_ptr<rmw_request_id_t> request_header, 
 				const std::shared_ptr<std_srvs::srv::Trigger::Request> request, 
 				std::shared_ptr<std_srvs::srv::Trigger::Response> response)
 {
 	RCLCPP_INFO(get_logger(), "\033[1;35mReceived fixing initpose\033[0m");
-	tf_publish_ = false;
+	initial_pose_flag = false;
+	is_fixed_tf_stamped_initialized = true;
 			(void)request_header; // Unused parameter
 	auto message_request = std::make_shared<techshare_ros_pkg2::srv::SendMsg::Request>();
 	message_request->message = "FIXED THE INITIAL POSE";
@@ -394,20 +434,7 @@ void EMcl2Node::handle_initpose_fixed_service(const std::shared_ptr<rmw_request_
 	response->message = "Service called successfully";
 } 
 
-void EMcl2Node::publishFixedOdomFrame()
-{
-	if (is_fixed_tf_stamped_initialized) {
-		
-		auto stamp = tf2_ros::fromMsg(scan_time_stamp_);
-		tf2::TimePoint transform_tolerance_ = stamp + tf2::durationFromSec(0.2);
-		fixed_tf_stamped.header.stamp = tf2_ros::toMsg(transform_tolerance_);
-		tfb_->sendTransform(fixed_tf_stamped);
-		if(show_mgs_){
-			RCLCPP_INFO(get_logger(), "\033[1;35mPublishing the fixed odom\033[0m");
-			show_mgs_ = false;
-		}
-	}
-}
+
 
 void EMcl2Node::publishParticles(void)
 {
@@ -490,7 +517,8 @@ bool EMcl2Node::nodeDestroySet(
   const std_srvs::srv::Empty::Request::ConstSharedPtr, std_srvs::srv::Empty::Response::SharedPtr)
 {    
 	send_msg_ = false;
-    tf_publish_ = false;
+	is_fixed_tf_stamped_initialized = false;
+	initial_pose_flag = true;
     return true;
 }
 

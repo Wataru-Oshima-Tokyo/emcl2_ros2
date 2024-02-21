@@ -84,11 +84,15 @@ class EMcl2Node : public rclcpp::Node
 	bool is_fixed_tf_stamped_initialized;
 	bool scan_receive_;
 	bool map_receive_;
-	bool tf_publish_;
 	bool send_msg_;
 	bool use_sim_time_;
 	double init_x_, init_y_, init_t_;
 	bool show_mgs_;
+	std::vector<float> alpha_array;
+	rclcpp::TimerBase::SharedPtr timer_; // this is the timer to measure the time of alpha
+	bool timer_started_;
+	bool initial_pose_flag;
+
 	void publishPose(
 	  double x, double y, double t, double x_dev, double y_dev, double t_dev, double xy_cov,
 	  double yt_cov, double tx_cov);
@@ -97,10 +101,13 @@ class EMcl2Node : public rclcpp::Node
 	bool getOdomPose(double & x, double & y, double & yaw);	 // same name is found in amcl
 	bool getLidarPose(double & x, double & y, double & yaw, bool & inv);
 	void receiveMap(const nav_msgs::msg::OccupancyGrid::ConstSharedPtr msg);
-	void publishFixedOdomFrame(); 
 	void handle_initpose_fixed_service(const std::shared_ptr<rmw_request_id_t> request_header, 
 					const std::shared_ptr<std_srvs::srv::Trigger::Request> request, 
 					std::shared_ptr<std_srvs::srv::Trigger::Response> response); //tf_publish_ = false
+	void startTimer();
+	void stopTimer();
+	void clearAlphaArray();
+	void checkAlpha();
 	void initCommunication(void);
 	void initTF();
 	void initPF(void);
